@@ -122,7 +122,7 @@ class RepoManagerTest {
             null
         } catch (e: IllegalStateException) { e }
         assertTrue(ex != null)
-        assertTrue(ex.message!!.contains("GITHUB_TOKEN"))
+        assertTrue(ex.message!!.contains("GitHub auth required"))
     }
 
     @Test

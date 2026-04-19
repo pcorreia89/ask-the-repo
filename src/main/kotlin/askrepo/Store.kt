@@ -47,6 +47,14 @@ object Store {
     }
     private val jsonCompact = Json { ignoreUnknownKeys = true }
 
+    internal var pg: PgStore? = null
+
+    fun init(databaseUrl: String?) {
+        pg = databaseUrl?.let { PgStore(it) }
+    }
+
+    private fun indexName(dir: Path): String = dir.fileName.toString()
+
     fun repoLocalDir(repoRoot: Path): Path = repoRoot.resolve(Defaults.INDEX_DIR)
 
     fun namedDir(indexBase: Path, name: String): Path = indexBase.resolve(name)
@@ -58,6 +66,7 @@ object Store {
     }
 
     fun exists(dir: Path): Boolean {
+        pg?.let { return it.exists(indexName(dir)) }
         return Files.isDirectory(dir) &&
             Files.isRegularFile(dir.resolve(Defaults.MANIFEST_FILE)) &&
             Files.isRegularFile(dir.resolve(Defaults.CHUNKS_FILE)) &&
@@ -65,6 +74,7 @@ object Store {
     }
 
     fun listNamedIndexes(indexBase: Path): List<String> {
+        pg?.let { return it.listIndexes() }
         if (!Files.isDirectory(indexBase)) return emptyList()
         return Files.list(indexBase).use { stream ->
             stream.filter { Files.isDirectory(it) && exists(it) }
@@ -75,28 +85,33 @@ object Store {
     }
 
     fun readManifest(dir: Path): Manifest? {
+        pg?.let { return it.readManifest(indexName(dir)) }
         val f = dir.resolve(Defaults.MANIFEST_FILE)
         if (!Files.isRegularFile(f)) return null
         return json.decodeFromString(Manifest.serializer(), Files.readString(f))
     }
 
     fun writeManifest(dir: Path, manifest: Manifest) {
+        pg?.let { it.writeManifest(indexName(dir), manifest); return }
         Files.createDirectories(dir)
         Files.writeString(dir.resolve(Defaults.MANIFEST_FILE), json.encodeToString(Manifest.serializer(), manifest))
     }
 
     fun readFilesIndex(dir: Path): FilesIndex {
+        pg?.let { return it.readFilesIndex(indexName(dir)) }
         val f = dir.resolve(Defaults.FILES_FILE)
         if (!Files.isRegularFile(f)) return FilesIndex()
         return json.decodeFromString(FilesIndex.serializer(), Files.readString(f))
     }
 
     fun writeFilesIndex(dir: Path, index: FilesIndex) {
+        pg?.let { it.writeFilesIndex(indexName(dir), index); return }
         Files.createDirectories(dir)
         Files.writeString(dir.resolve(Defaults.FILES_FILE), json.encodeToString(FilesIndex.serializer(), index))
     }
 
     fun readChunks(dir: Path): List<StoredChunk> {
+        pg?.let { return it.readChunks(indexName(dir)) }
         val f = dir.resolve(Defaults.CHUNKS_FILE)
         if (!Files.isRegularFile(f)) return emptyList()
         val out = ArrayList<StoredChunk>()
@@ -113,6 +128,7 @@ object Store {
     }
 
     fun writeChunks(dir: Path, chunks: List<StoredChunk>) {
+        pg?.let { it.writeChunks(indexName(dir), chunks); return }
         Files.createDirectories(dir)
         Files.newBufferedWriter(
             dir.resolve(Defaults.CHUNKS_FILE),
@@ -128,6 +144,7 @@ object Store {
     }
 
     fun writeVectors(dir: Path, dim: Int, vectors: List<FloatArray>) {
+        pg?.let { it.writeVectors(indexName(dir), dim, vectors); return }
         require(vectors.all { it.size == dim }) { "vector dimension mismatch" }
         Files.createDirectories(dir)
         val file = dir.resolve(Defaults.VECTORS_FILE)
@@ -145,6 +162,7 @@ object Store {
     }
 
     fun readVectors(dir: Path): Pair<Int, List<FloatArray>> {
+        pg?.let { return it.readVectors(indexName(dir)) }
         val file = dir.resolve(Defaults.VECTORS_FILE)
         if (!Files.isRegularFile(file)) return 0 to emptyList()
         val bytes = Files.readAllBytes(file)

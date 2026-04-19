@@ -138,6 +138,7 @@ fun main(args: Array<String>) {
                 kotlin.system.exitProcess(1)
             }
             val config = Config.load(Paths.get("").toAbsolutePath())
+            Store.init(config.databaseUrl)
             val indexDir = if (parsed.name != null) {
                 Store.namedDir(config.indexBase, parsed.name)
             } else null
@@ -160,6 +161,7 @@ fun main(args: Array<String>) {
                 kotlin.system.exitProcess(1)
             }
             val config = Config.load(Paths.get("").toAbsolutePath())
+            Store.init(config.databaseUrl)
             val indexDir = if (parsed.name != null) {
                 Store.namedDir(config.indexBase, parsed.name)
             } else {
@@ -176,6 +178,7 @@ fun main(args: Array<String>) {
                 kotlin.system.exitProcess(1)
             }
             val config = Config.load(Paths.get("").toAbsolutePath())
+            Store.init(config.databaseUrl)
             if (parsed.interval != null) {
                 while (true) {
                     println("${LocalDateTime.now()} syncing...")
@@ -188,6 +191,7 @@ fun main(args: Array<String>) {
         }
         "list" -> {
             val config = Config.load(Paths.get("").toAbsolutePath())
+            Store.init(config.databaseUrl)
             val names = Store.listNamedIndexes(config.indexBase)
             val registry = RepoManager.loadRegistry(config)
             if (names.isEmpty() && registry.repos.isEmpty()) {
@@ -219,6 +223,7 @@ fun main(args: Array<String>) {
         }
         "serve" -> {
             val config = Config.load(Paths.get("").toAbsolutePath())
+            Store.init(config.databaseUrl)
             AdminServer.start(config)
             if (config.syncIntervalMinutes != null && config.syncIntervalMinutes > 0) {
                 Thread({

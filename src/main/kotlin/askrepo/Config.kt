@@ -62,6 +62,10 @@ data class Config(
     val githubToken: String?,
     val syncIntervalMinutes: Int?,
     val webhookSecret: String?,
+    val databaseUrl: String? = null,
+    val githubAppId: String? = null,
+    val githubAppInstallationId: String? = null,
+    val githubAppPrivateKey: String? = null,
 ) {
     fun createEmbeddingClient(): EmbeddingClient = when (embeddingProvider) {
         EmbeddingProvider.VOYAGE -> {
@@ -77,6 +81,18 @@ data class Config(
             EmbeddingProvider.VOYAGE -> voyageModel
             EmbeddingProvider.OLLAMA -> ollamaModel
         }
+
+    fun resolveGitHubToken(): String? {
+        if (!githubToken.isNullOrEmpty()) return githubToken
+        val appId = githubAppId
+        val installId = githubAppInstallationId
+        val keyRaw = githubAppPrivateKey
+        if (appId != null && installId != null && keyRaw != null) {
+            val pem = GitHubApp.resolvePrivateKey(keyRaw)
+            return GitHubApp.getInstallationToken(appId, installId, pem)
+        }
+        return null
+    }
 
     companion object {
         fun load(workingDir: Path): Config {
@@ -136,6 +152,10 @@ data class Config(
                 githubToken = env["GITHUB_TOKEN"]?.takeIf { it.isNotBlank() },
                 syncIntervalMinutes = env["SYNC_INTERVAL_MINUTES"]?.toIntOrNull(),
                 webhookSecret = env["WEBHOOK_SECRET"]?.takeIf { it.isNotBlank() },
+                databaseUrl = env["DATABASE_URL"]?.takeIf { it.isNotBlank() },
+                githubAppId = env["GITHUB_APP_ID"]?.takeIf { it.isNotBlank() },
+                githubAppInstallationId = env["GITHUB_APP_INSTALLATION_ID"]?.takeIf { it.isNotBlank() },
+                githubAppPrivateKey = env["GITHUB_APP_PRIVATE_KEY"]?.takeIf { it.isNotBlank() },
             )
         }
     }

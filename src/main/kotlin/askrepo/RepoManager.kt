@@ -28,12 +28,14 @@ object RepoManager {
         config.indexBase.parent.resolve("repos.json")
 
     fun loadRegistry(config: Config): RepoRegistry {
+        Store.pg?.let { return it.loadRegistry() }
         val f = registryFile(config)
         if (!Files.isRegularFile(f)) return RepoRegistry()
         return json.decodeFromString(RepoRegistry.serializer(), Files.readString(f))
     }
 
     fun saveRegistry(config: Config, registry: RepoRegistry) {
+        Store.pg?.let { it.saveRegistry(registry); return }
         val f = registryFile(config)
         Files.createDirectories(f.parent)
         Files.writeString(f, json.encodeToString(RepoRegistry.serializer(), registry))
@@ -47,8 +49,12 @@ object RepoManager {
                 BitbucketProvider(token)
             }
             "github" -> {
-                val token = config.githubToken
-                    ?: error("GITHUB_TOKEN is required for GitHub repos. See .env.example.")
+                val token = config.resolveGitHubToken()
+                    ?: error(
+                        "GitHub auth required: set GITHUB_TOKEN, or set " +
+                            "GITHUB_APP_ID + GITHUB_APP_INSTALLATION_ID + GITHUB_APP_PRIVATE_KEY. " +
+                            "See .env.example."
+                    )
                 GitHubProvider(token)
             }
             else -> error("unknown provider: ${entry.provider}. Use 'bitbucket' or 'github'.")

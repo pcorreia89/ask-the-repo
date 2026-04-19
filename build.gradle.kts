@@ -24,6 +24,7 @@ dependencies {
     implementation(libs.websocket.api)
     implementation(libs.tyrus.standalone.client)
     implementation(libs.slf4j.simple)
+    implementation(libs.postgresql)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)
