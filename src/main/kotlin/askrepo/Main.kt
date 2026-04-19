@@ -7,27 +7,27 @@ import java.time.LocalDateTime
 fun printUsage() {
     System.err.println(
         """
-        |ask-repos — local RAG Q&A over git repositories.
+        |ask-the-repo — local RAG Q&A over git repositories.
         |
         |Usage:
-        |  ask-repos ingest --path <repo-path> [--name <index-name>]
+        |  ask-the-repo ingest --path <repo-path> [--name <index-name>]
         |      Walk a local repo, chunk, embed, and persist an index.
-        |      Without --name, index is stored inside the repo at .ask-repos/.
-        |      With --name, index is stored centrally under ~/.ask-repos/indexes/<name>/.
+        |      Without --name, index is stored inside the repo at .ask-the-repo/.
+        |      With --name, index is stored centrally under ~/.ask-the-repo/indexes/<name>/.
         |
-        |  ask-repos sync [--name <index-name>] [--interval <minutes>]
+        |  ask-the-repo sync [--name <index-name>] [--interval <minutes>]
         |      Fetch files via Bitbucket/GitHub API and re-ingest. Without --name,
-        |      syncs all repos defined in ~/.ask-repos/repos.json.
+        |      syncs all repos defined in ~/.ask-the-repo/repos.json.
         |      With --interval, runs continuously on the given schedule.
         |
-        |  ask-repos ask "<question>" [--path <repo-path> | --name <index-name>]
+        |  ask-the-repo ask "<question>" [--path <repo-path> | --name <index-name>]
         |      Answer a natural-language question. Use --path for a repo-local index
         |      or --name for a centrally stored index. Defaults to current directory.
         |
-        |  ask-repos list
+        |  ask-the-repo list
         |      List all centrally stored named indexes.
         |
-        |  ask-repos serve
+        |  ask-the-repo serve
         |      Start the Slack bot (requires SLACK_BOT_TOKEN and SLACK_APP_TOKEN).
         |
         |Environment:
@@ -152,7 +152,7 @@ fun main(args: Array<String>) {
                 kotlin.system.exitProcess(1)
             }
             if (parsed.positional.isEmpty()) {
-                System.err.println("error: ask requires a question argument, e.g. ask-repos ask \"how does X work?\"")
+                System.err.println("error: ask requires a question argument, e.g. ask-the-repo ask \"how does X work?\"")
                 kotlin.system.exitProcess(1)
             }
             val question = parsed.positional.joinToString(" ")
@@ -196,8 +196,8 @@ fun main(args: Array<String>) {
             val registry = RepoManager.loadRegistry(config)
             if (names.isEmpty() && registry.repos.isEmpty()) {
                 println("No indexed repos found.")
-                println("Use `ask-repos sync` (with repos.json) or")
-                println("     `ask-repos ingest --path <repo> --name <name>` to get started.")
+                println("Use `ask-the-repo sync` (with repos.json) or")
+                println("     `ask-the-repo ingest --path <repo> --name <name>` to get started.")
             } else {
                 if (names.isNotEmpty()) {
                     println("Named indexes (${config.indexBase}):")

@@ -66,7 +66,7 @@ object AdminServer {
     internal fun Application.configure(config: Config) {
         install(Authentication) {
             basic("admin") {
-                realm = "ask-repos Admin"
+                realm = "ask-the-repo Admin"
                 validate { credentials ->
                     if (credentials.name == config.adminUser && credentials.password == config.adminPassword) {
                         UserIdPrincipal(credentials.name)
@@ -120,7 +120,7 @@ object AdminServer {
                         val registry = RepoManager.loadRegistry(config)
                         val indexed = Store.listNamedIndexes(config.indexBase)
                         call.respondPage("Dashboard") {
-                            h1 { +"ask-repos Admin" }
+                            h1 { +"ask-the-repo Admin" }
                             p { +"Indexed repos: ${indexed.size} | Registered repos: ${registry.repos.size}" }
 
                             div {
@@ -497,7 +497,7 @@ object AdminServer {
     private suspend fun ApplicationCall.respondPage(pageTitle: String, block: BODY.() -> Unit) {
         respondHtml {
             head {
-                title { +"ask-repos — $pageTitle" }
+                title { +"ask-the-repo — $pageTitle" }
                 style {
                     unsafe {
                         raw(CSS)

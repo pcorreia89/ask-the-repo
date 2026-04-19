@@ -8,7 +8,7 @@ RUN ./gradlew installDist --no-daemon
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/build/install/ask-repos/ ./
+COPY --from=build /app/build/install/ask-the-repo/ ./
 EXPOSE 3000
-ENTRYPOINT ["./bin/ask-repos"]
+ENTRYPOINT ["./bin/ask-the-repo"]
 CMD ["serve"]

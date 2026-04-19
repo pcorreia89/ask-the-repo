@@ -4,10 +4,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-LAUNCHER="$SCRIPT_DIR/build/install/ask-repos/bin/ask-repos"
+LAUNCHER="$SCRIPT_DIR/build/install/ask-the-repo/bin/ask-the-repo"
 
 if [ ! -x "$LAUNCHER" ]; then
-  echo "ask-repos: running './gradlew installDist' first..." >&2
+  echo "ask-the-repo: running './gradlew installDist' first..." >&2
   (cd "$SCRIPT_DIR" && ./gradlew -q installDist)
 fi
 

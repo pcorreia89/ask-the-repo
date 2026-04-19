@@ -15,7 +15,7 @@ object Defaults {
     const val VOYAGE_ENDPOINT = "https://api.voyageai.com/v1/embeddings"
     const val ANTHROPIC_VERSION = "2023-06-01"
 
-    const val INDEX_DIR = ".ask-repos"
+    const val INDEX_DIR = ".ask-the-repo"
     const val MANIFEST_FILE = "manifest.json"
     const val FILES_FILE = "files.json"
     const val CHUNKS_FILE = "chunks.jsonl"
@@ -34,7 +34,7 @@ object Defaults {
 
     val BUILTIN_IGNORES = listOf(
         ".git", "node_modules", ".venv", "venv", "dist", "build",
-        "target", ".gradle", ".idea", ".ask-repos", "out",
+        "target", ".gradle", ".idea", ".ask-the-repo", "out",
         "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
         "Cargo.lock", "Gemfile.lock", "poetry.lock", "go.sum",
     )
@@ -127,7 +127,7 @@ data class Config(
                 }
             }
 
-            val defaultBase = Path.of(System.getProperty("user.home"), ".ask-repos", "indexes")
+            val defaultBase = Path.of(System.getProperty("user.home"), ".ask-the-repo", "indexes")
             return Config(
                 adminUser = env["ADMIN_USER"]?.takeIf { it.isNotBlank() } ?: "admin",
                 adminPassword = env["ADMIN_PASSWORD"]?.takeIf { it.isNotBlank() } ?: "admin",
@@ -143,9 +143,9 @@ data class Config(
                     ?: Defaults.OLLAMA_MODEL,
                 ollamaBaseUrl = env["OLLAMA_BASE_URL"]?.takeIf { it.isNotBlank() }
                     ?: Defaults.OLLAMA_BASE_URL,
-                topK = env["ASK_REPOS_TOP_K"]?.toIntOrNull() ?: Defaults.TOP_K,
-                maxTokens = env["ASK_REPOS_MAX_TOKENS"]?.toIntOrNull() ?: Defaults.MAX_TOKENS,
-                indexBase = Path.of(env["ASK_REPOS_INDEX_BASE"] ?: defaultBase.toString()),
+                topK = env["ASK_THE_REPO_TOP_K"]?.toIntOrNull() ?: Defaults.TOP_K,
+                maxTokens = env["ASK_THE_REPO_MAX_TOKENS"]?.toIntOrNull() ?: Defaults.MAX_TOKENS,
+                indexBase = Path.of(env["ASK_THE_REPO_INDEX_BASE"] ?: defaultBase.toString()),
                 slackBotToken = env["SLACK_BOT_TOKEN"]?.takeIf { it.isNotBlank() },
                 slackAppToken = env["SLACK_APP_TOKEN"]?.takeIf { it.isNotBlank() },
                 bitbucketToken = env["BITBUCKET_TOKEN"]?.takeIf { it.isNotBlank() },

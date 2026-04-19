@@ -1,4 +1,4 @@
-# ask-repos
+# ask-the-repo
 
 A command-line tool and Slack bot that lets you ask natural-language
 questions about git repositories and get answers grounded in the repo's
@@ -35,13 +35,13 @@ code and documentation.
 
 ```sh
 git clone <repo-url>
-cd ask-repos
+cd ask-the-repo
 cp .env.example .env
 # fill in API keys (and optionally Slack tokens) in .env
 ./gradlew installDist
 ```
 
-The `ask-repos` script in the repo root is a thin wrapper around the
+The `ask-the-repo` script in the repo root is a thin wrapper around the
 `installDist` launcher. For convenience, add the repo root to your
 `PATH` or copy the wrapper into `~/bin`.
 
@@ -50,20 +50,20 @@ The `ask-repos` script in the repo root is a thin wrapper around the
 ### Index a repo (local)
 
 ```sh
-./ask-repos ingest --path /path/to/some/repo
+./ask-the-repo ingest --path /path/to/some/repo
 ```
 
-Index is written to `/path/to/some/repo/.ask-repos/`. Consider adding
-`.ask-repos/` to that repo's `.gitignore`.
+Index is written to `/path/to/some/repo/.ask-the-repo/`. Consider adding
+`.ask-the-repo/` to that repo's `.gitignore`.
 
 ### Index a repo (named / centralized)
 
 ```sh
-./ask-repos ingest --path /path/to/some/repo --name my-project
+./ask-the-repo ingest --path /path/to/some/repo --name my-project
 ```
 
-Index is written to `~/.ask-repos/indexes/my-project/` (override with
-`ASK_REPOS_INDEX_BASE`). Named indexes are what the Slack bot uses.
+Index is written to `~/.ask-the-repo/indexes/my-project/` (override with
+`ASK_THE_REPO_INDEX_BASE`). Named indexes are what the Slack bot uses.
 
 Re-running either form is incremental: unchanged files are skipped.
 
@@ -71,23 +71,23 @@ Re-running either form is incremental: unchanged files are skipped.
 
 ```sh
 # Using a repo-local index:
-./ask-repos ask "how does X work?" --path /path/to/some/repo
+./ask-the-repo ask "how does X work?" --path /path/to/some/repo
 
 # Using a named index:
-./ask-repos ask "how does X work?" --name my-project
+./ask-the-repo ask "how does X work?" --name my-project
 ```
 
 ### Sync repos via API (no git clone)
 
 ```sh
 # Sync all repos defined in repos.json:
-./ask-repos sync
+./ask-the-repo sync
 
 # Sync a specific repo:
-./ask-repos sync --name my-project
+./ask-the-repo sync --name my-project
 
 # Run sync continuously every 30 minutes:
-./ask-repos sync --interval 30
+./ask-the-repo sync --interval 30
 ```
 
 Files are fetched via the Bitbucket/GitHub REST API and never stored on
@@ -96,7 +96,7 @@ repos where cloning onto the bot's host is a security concern.
 
 #### repos.json
 
-The sync command reads `~/.ask-repos/repos.json` to know which repos
+The sync command reads `~/.ask-the-repo/repos.json` to know which repos
 to sync. Example:
 
 ```json
@@ -133,23 +133,23 @@ Fields:
 ### List named indexes
 
 ```sh
-./ask-repos list
+./ask-the-repo list
 ```
 
 ### Start the Slack bot
 
 ```sh
-./ask-repos serve
+./ask-the-repo serve
 ```
 
 Requires `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` in `.env`.
 
 In Slack, mention the bot with a question:
-- `@ask-repos how does authentication work?` — if only one repo is
+- `@ask-the-repo how does authentication work?` — if only one repo is
   indexed, it searches that one.
-- `@ask-repos how does auth work? in backend-api` — specify a repo
+- `@ask-the-repo how does auth work? in backend-api` — specify a repo
   by name when multiple are indexed.
-- `@ask-repos help` — lists available repos.
+- `@ask-the-repo help` — lists available repos.
 
 ### Slack app setup
 
@@ -162,11 +162,11 @@ In Slack, mention the bot with a question:
    event.
 5. Install the app to your workspace. The bot token is your
    `SLACK_BOT_TOKEN`.
-6. Add both tokens to `.env` and run `./ask-repos serve`.
+6. Add both tokens to `.env` and run `./ask-the-repo serve`.
 
 ## Embedding providers
 
-ask-repos defaults to [Ollama](https://ollama.com) with `nomic-embed-text`
+ask-the-repo defaults to [Ollama](https://ollama.com) with `nomic-embed-text`
 for embeddings — free, open-source, and runs locally. Voyage AI is
 available as an optional paid alternative with slightly better code search
 quality.
@@ -229,7 +229,7 @@ curl http://localhost:11434/api/tags
 
 Ollama listens on `http://localhost:11434` by default. If running Ollama
 on a separate host, set `OLLAMA_BASE_URL=http://<ollama-host>:11434` in
-your `ask-repos.env`.
+your `ask-the-repo.env`.
 
 ### Trade-offs
 
@@ -259,17 +259,17 @@ your `ask-repos.env`.
 ./gradlew assembleDist
 
 # 2. Copy to the server
-scp build/distributions/ask-repos-0.1.0.zip app@<server>:~/
+scp build/distributions/ask-the-repo-0.1.0.zip app@<server>:~/
 
 # 3. SSH in, extract, and set up
 ssh app@<server>
-rm -rf ask-repos-0.1.0
-unzip ask-repos-0.1.0.zip
+rm -rf ask-the-repo-0.1.0
+unzip ask-the-repo-0.1.0.zip
 ```
 
 ### Configure environment
 
-Create a `.env` file on the server (e.g. `~/ask-repos.env`):
+Create a `.env` file on the server (e.g. `~/ask-the-repo.env`):
 
 ```sh
 ANTHROPIC_API_KEY=...
@@ -287,16 +287,16 @@ WEBHOOK_SECRET=<random-string>
 
 ### Run with systemd
 
-Create `~/.config/systemd/user/ask-repos.service`:
+Create `~/.config/systemd/user/ask-the-repo.service`:
 
 ```ini
 [Unit]
-Description=ask-repos
+Description=ask-the-repo
 
 [Service]
 WorkingDirectory=%h
-EnvironmentFile=%h/ask-repos.env
-ExecStart=%h/ask-repos-0.1.0/bin/ask-repos serve
+EnvironmentFile=%h/ask-the-repo.env
+ExecStart=%h/ask-the-repo-0.1.0/bin/ask-the-repo serve
 Restart=on-failure
 
 [Install]
@@ -305,7 +305,7 @@ WantedBy=default.target
 
 ```sh
 systemctl --user daemon-reload
-systemctl --user enable --now ask-repos.service
+systemctl --user enable --now ask-the-repo.service
 ```
 
 The admin UI is now available at `http://<server-ip>:3000/admin`
@@ -317,19 +317,19 @@ The admin UI is now available at `http://<server-ip>:3000/admin`
 2. Log in with the admin credentials.
 3. Click **Add Repo** and fill in the provider, workspace, repo name, branch, and Slack channel IDs.
 4. Click **Sync** on a repo to index it immediately.
-5. The Slack bot is live — users can `@ask-repos` in the configured channels.
+5. The Slack bot is live — users can `@ask-the-repo` in the configured channels.
 
 ### Updating
 
 ```sh
 # Build locally and deploy
 ./gradlew assembleDist
-scp build/distributions/ask-repos-0.1.0.zip app@<server>:~/
+scp build/distributions/ask-the-repo-0.1.0.zip app@<server>:~/
 
 # On the server
-rm -rf ask-repos-0.1.0
-unzip ask-repos-0.1.0.zip
-systemctl --user restart ask-repos.service
+rm -rf ask-the-repo-0.1.0
+unzip ask-the-repo-0.1.0.zip
+systemctl --user restart ask-the-repo.service
 ```
 
 ### Webhook-triggered sync
@@ -344,12 +344,12 @@ POST http://<server-ip>:3000/webhook/<repo-name>?secret=<WEBHOOK_SECRET>
 The secret can also be sent as an `X-Webhook-Secret` header.
 
 **GitHub:** In your repo settings, add a webhook with:
-- Payload URL: `https://ask-repos.example.com/webhook/my-repo?secret=...`
+- Payload URL: `https://ask-the-repo.example.com/webhook/my-repo?secret=...`
 - Content type: `application/json`
 - Events: Just the push event
 
 **Bitbucket:** In your repo settings, add a webhook with:
-- URL: `https://ask-repos.example.com/webhook/my-repo?secret=...`
+- URL: `https://ask-the-repo.example.com/webhook/my-repo?secret=...`
 - Triggers: Repository push
 
 The webhook returns immediately and runs the sync in the background.
@@ -362,7 +362,7 @@ For production, put it behind a reverse proxy with TLS. Example with Caddy:
 
 ```
 # /etc/caddy/Caddyfile
-ask-repos.internal.example.com {
+ask-the-repo.internal.example.com {
     reverse_proxy localhost:3000
 }
 ```
@@ -388,8 +388,8 @@ block and configure your own certificate (e.g. via Let's Encrypt / certbot).
 
 ## On-disk index format
 
-Index files live under `<repo>/.ask-repos/` (local mode) or
-`~/.ask-repos/indexes/<name>/` (named mode):
+Index files live under `<repo>/.ask-the-repo/` (local mode) or
+`~/.ask-the-repo/indexes/<name>/` (named mode):
 
 - `manifest.json` — repo path, model, embedding model, dimension,
   timestamps.
@@ -457,7 +457,7 @@ Non-obvious choices and their rationale.
   available in a channel, the bot embeds the question and compares
   against each repo's index to pick the best match. Users can still
   force a repo with the `in <repo-name>` suffix.
-- **Named indexes live under `~/.ask-repos/indexes/<name>/`.** The
+- **Named indexes live under `~/.ask-the-repo/indexes/<name>/`.** The
   same format as repo-local indexes. The `--name` flag controls which
   mode is used. This keeps the Slack bot decoupled from where repos are
   cloned.

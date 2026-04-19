@@ -12,7 +12,7 @@ build/
 out/
 
 # Local index (if someone runs the tool from inside this repo)
-.ask-repos/
+.ask-the-repo/
 
 # Claude Code local settings
 .claude/settings.local.json

@@ -36,7 +36,7 @@ kotlin {
 
 application {
     mainClass.set("askrepo.MainKt")
-    applicationName = "ask-repos"
+    applicationName = "ask-the-repo"
 }
 
 tasks.test {

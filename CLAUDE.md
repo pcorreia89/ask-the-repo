@@ -6,7 +6,7 @@
 ./gradlew build              # compile + test
 ./gradlew test               # tests only (JUnit 5 via kotlin.test)
 ./gradlew installDist        # build launcher scripts
-./ask-repos <command>        # wrapper that calls installDist then runs the app
+./ask-the-repo <command>        # wrapper that calls installDist then runs the app
 ```
 
 Run a single test class: `./gradlew test --tests "askrepo.SomeTest"`
@@ -50,8 +50,8 @@ Key files:
 ## Container Deployment
 
 ```sh
-docker build -t ask-repos .
-docker run -e ANTHROPIC_API_KEY=... -e DATABASE_URL=postgres://... -p 3000:3000 ask-repos
+docker build -t ask-the-repo .
+docker run -e ANTHROPIC_API_KEY=... -e DATABASE_URL=postgres://... -p 3000:3000 ask-the-repo
 ```
 
 When `DATABASE_URL` is set, all indexes and repo registry are stored in PostgreSQL (with pgvector extension) instead of the filesystem. This is required for stateless container deployments (ECS, Kubernetes).

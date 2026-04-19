@@ -52,7 +52,7 @@ object SlackBot {
         }
 
         val socketModeApp = SocketModeApp(config.slackAppToken, app)
-        System.err.println("ask-repos slack bot starting (socket mode)...")
+        System.err.println("ask-the-repo slack bot starting (socket mode)...")
         val names = Store.listNamedIndexes(config.indexBase)
         System.err.println("serving ${names.size} indexed repo(s): ${names.joinToString(", ")}")
         socketModeApp.start()
@@ -82,9 +82,9 @@ object SlackBot {
                 allowedRepos.joinToString("\n") { "  • `$it`" }
             }
             postMessage(client, token, channel, threadTs,
-                "*ask-repos* — ask questions about your codebase.\n\n" +
-                    "Usage: `@ask-repos <question>` — the best repo is auto-detected.\n" +
-                    "To target a specific repo: `@ask-repos <question> in <repo-name>`\n\n" +
+                "*ask-the-repo* — ask questions about your codebase.\n\n" +
+                    "Usage: `@ask-the-repo <question>` — the best repo is auto-detected.\n" +
+                    "To target a specific repo: `@ask-the-repo <question> in <repo-name>`\n\n" +
                     "Available repos:\n$repoList")
             return
         }
@@ -147,7 +147,7 @@ object SlackBot {
             }
             postMessage(client, token, channel, threadTs,
                 "Multiple repos available and I couldn't determine which one fits best. " +
-                    "Please specify: `@ask-repos <question> in <repo-name>`\n\n" +
+                    "Please specify: `@ask-the-repo <question> in <repo-name>`\n\n" +
                     "Available: ${allowedRepos.joinToString(", ") { "`$it`" }}")
             return
         }
@@ -208,7 +208,7 @@ object SlackBot {
         val indexDir = Store.namedDir(config.indexBase, repoName)
         if (!Store.exists(indexDir)) {
             postMessage(client, token, channel, threadTs,
-                "Index `$repoName` not found. Run `ask-repos ingest --path <repo> --name $repoName` first.")
+                "Index `$repoName` not found. Run `ask-the-repo ingest --path <repo> --name $repoName` first.")
             return
         }
 

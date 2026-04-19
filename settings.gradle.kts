@@ -1,1 +1,1 @@
-rootProject.name = "ask-repos"
+rootProject.name = "ask-the-repo"

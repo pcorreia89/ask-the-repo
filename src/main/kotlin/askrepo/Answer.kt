@@ -86,7 +86,7 @@ Rules:
         if (!Store.exists(indexDir)) {
             System.err.println(
                 "error: no index found at $indexDir. " +
-                    "Run `ask-repos ingest` first."
+                    "Run `ask-the-repo ingest` first."
             )
             kotlin.system.exitProcess(3)
         }
