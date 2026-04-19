@@ -25,9 +25,11 @@ Key files:
 - `Ingest.kt` / `Chunking.kt` — repo walking, chunking (code + markdown aware)
 - `Anthropic.kt` / `Embeddings.kt` — Claude and embedding HTTP clients (Voyage AI + Ollama)
 - `Retrieve.kt` — hybrid BM25 + cosine similarity retrieval
-- `Store.kt` — on-disk index format (manifest.json, chunks.jsonl, vectors.bin)
+- `Store.kt` — index storage; delegates to file-based or PostgreSQL (`PgStore.kt`) backend
+- `PgStore.kt` — PostgreSQL + pgvector storage backend (used when `DATABASE_URL` is set)
 - `Config.kt` — env var / `.env` parsing
 - `GitProvider.kt` — Bitbucket/GitHub REST API file fetching
+- `GitHubApp.kt` — GitHub App JWT auth (alternative to `GITHUB_TOKEN`)
 - `RepoManager.kt` — repos.json registry, sync orchestration
 
 ## Code Style
@@ -45,11 +47,22 @@ Key files:
 - AdminServer tests use Ktor `testApplication` with `testConfig()` helper
 - Tests create temp directories and clean up after themselves
 
+## Container Deployment
+
+```sh
+docker build -t ask-repos .
+docker run -e ANTHROPIC_API_KEY=... -e DATABASE_URL=postgres://... -p 3000:3000 ask-repos
+```
+
+When `DATABASE_URL` is set, all indexes and repo registry are stored in PostgreSQL (with pgvector extension) instead of the filesystem. This is required for stateless container deployments (ECS, Kubernetes).
+
 ## Environment
 
 Required: `ANTHROPIC_API_KEY` (in env or `.env` file).
 Embeddings default to Ollama (`nomic-embed-text`). Set `EMBEDDING_PROVIDER=voyage` and `VOYAGE_API_KEY` for Voyage.
-See `.env.example` for all optional variables (`OLLAMA_BASE_URL`, `OLLAMA_MODEL`, etc.).
+GitHub auth: set `GITHUB_TOKEN` or `GITHUB_APP_ID` + `GITHUB_APP_INSTALLATION_ID` + `GITHUB_APP_PRIVATE_KEY`.
+Set `DATABASE_URL` for PostgreSQL storage (requires pgvector extension; available on AWS RDS/Aurora PostgreSQL).
+See `.env.example` for all optional variables.
 
 ## Security Conventions
 
