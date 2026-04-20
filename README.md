@@ -245,12 +245,125 @@ your `ask-the-repo.env`.
 
 ## Deployment
 
+Two supported paths:
+- **[Docker](#docker)** — a single container image, optionally with PostgreSQL for stateless storage. Best for ECS, Kubernetes, or any container host.
+- **[VM / EC2 with systemd](#vm--ec2-with-systemd)** — the traditional setup: unzip the distribution and run under systemd. Best when you already have a Linux host you manage directly.
+
 ### What you need
 
-- An EC2 instance (or any Linux host) with **Java 21** (JRE) installed.
+- A host with **Java 21** (JRE) — or just Docker if you use the container path.
 - API keys: `ANTHROPIC_API_KEY`. Embeddings default to Ollama (see [Embedding providers](#embedding-providers)).
-- Git provider token(s): `GITHUB_TOKEN` and/or `BITBUCKET_TOKEN`.
+- Git provider token(s): `GITHUB_TOKEN` and/or `BITBUCKET_TOKEN` (or a GitHub App — see [GitHub App auth](#github-app-auth)).
 - Slack app tokens: `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` (see [Slack app setup](#slack-app-setup) below).
+
+## Docker
+
+A `Dockerfile` and `docker-compose.yml` are included. The Dockerfile uses a two-stage build (Gradle + JRE) and defaults to `serve`.
+
+### Quick start with Compose (app + pgvector)
+
+The easiest way to run everything locally. Compose spins up the app alongside a `pgvector/pgvector:pg16` Postgres container, wires them together, and waits for the DB to be healthy before starting the app.
+
+```sh
+docker compose up --build
+```
+
+The app reads secrets from your `.env` (API keys, Slack tokens, GitHub auth), but `DATABASE_URL` is overridden in `docker-compose.yml` to point at the bundled `db` service — no need to edit `.env`.
+
+Postgres data is persisted in the `pgdata` named volume. To wipe it: `docker compose down -v`.
+
+### Build and run (standalone)
+
+```sh
+docker build -t ask-the-repo .
+
+docker run --rm -p 3000:3000 \
+  -e ANTHROPIC_API_KEY=... \
+  -e SLACK_BOT_TOKEN=xoxb-... \
+  -e SLACK_APP_TOKEN=xapp-... \
+  -e ADMIN_USER=admin \
+  -e ADMIN_PASSWORD=<change-me> \
+  -e WEBHOOK_SECRET=<random-string> \
+  ask-the-repo
+```
+
+Or pass your `.env` file directly:
+
+```sh
+docker run --rm -p 3000:3000 --env-file .env ask-the-repo
+```
+
+The admin UI is available at `http://localhost:3000/admin`.
+
+### One-off commands
+
+The default command is `serve`, but you can override it:
+
+```sh
+docker run --rm --env-file .env ask-the-repo list
+docker run --rm --env-file .env ask-the-repo sync --name my-project
+```
+
+### Persistence
+
+By default, indexes live on the container's filesystem and are lost when the container is removed. Two options:
+
+**Option A — Volume mount** (single-host deployments):
+
+```sh
+docker run --rm -p 3000:3000 \
+  -v ask-the-repo-data:/root/.ask-the-repo \
+  --env-file .env \
+  ask-the-repo
+```
+
+**Option B — PostgreSQL** (recommended for ECS, Kubernetes, or any stateless orchestrator): see [PostgreSQL storage](#postgresql-storage) below.
+
+## PostgreSQL storage
+
+When `DATABASE_URL` is set, indexes and the repo registry are stored in PostgreSQL instead of the filesystem. Required for stateless container deployments.
+
+### Requirements
+
+- PostgreSQL 13+ with the **pgvector** extension.
+  - AWS RDS / Aurora PostgreSQL: pgvector is available as an installable extension.
+  - Local: `brew install pgvector` (macOS) or install the server package and run `CREATE EXTENSION vector;`.
+
+### Setup
+
+```sql
+CREATE DATABASE ask_the_repo;
+\c ask_the_repo
+CREATE EXTENSION vector;
+```
+
+Then set in `.env`:
+
+```sh
+DATABASE_URL=postgres://user:password@host:5432/ask_the_repo
+```
+
+Tables are created automatically on first run. Switching between filesystem and PostgreSQL storage requires re-ingesting repos.
+
+## GitHub App auth
+
+As an alternative to `GITHUB_TOKEN`, you can authenticate as a GitHub App. This is preferred for org-wide use: fine-grained permissions, higher rate limits, and no personal token tied to an individual.
+
+1. Create a GitHub App (Settings → Developer settings → GitHub Apps → New).
+2. Grant **Contents: Read-only** permission.
+3. Install the app on the repos/org you want indexed.
+4. On the app page, click **Generate a private key** — a `.pem` file downloads.
+5. Set in `.env`:
+
+```sh
+GITHUB_APP_ID=<app-id>
+GITHUB_APP_INSTALLATION_ID=<installation-id>
+GITHUB_APP_PRIVATE_KEY=<PEM string, base64-encoded PEM, or path to .pem file>
+```
+
+The installation ID is visible in the URL when you click "Configure" on the installed app: `.../installations/<id>`.
+
+## VM / EC2 with systemd
 
 ### Build and deploy
 
