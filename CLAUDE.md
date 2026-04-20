@@ -23,7 +23,9 @@ Key files:
 - `AdminServer.kt` — Ktor HTTP server: admin UI, webhook endpoint, SSE sync progress
 - `SlackBot.kt` — Slack Bolt SDK socket-mode bot
 - `Ingest.kt` / `Chunking.kt` — repo walking, chunking (code + markdown aware)
+- `Gitignore.kt` — partial `.gitignore` pattern matcher
 - `Anthropic.kt` / `Embeddings.kt` — Claude and embedding HTTP clients (Voyage AI + Ollama)
+- `Answer.kt` — orchestrates retrieval + Claude call for a question
 - `Retrieve.kt` — hybrid BM25 + cosine similarity retrieval
 - `Store.kt` — index storage; delegates to file-based or PostgreSQL (`PgStore.kt`) backend
 - `PgStore.kt` — PostgreSQL + pgvector storage backend (used when `DATABASE_URL` is set)
@@ -50,9 +52,13 @@ Key files:
 ## Container Deployment
 
 ```sh
+docker compose up --build        # app + bundled pgvector database
+# or standalone:
 docker build -t ask-the-repo .
 docker run -e ANTHROPIC_API_KEY=... -e DATABASE_URL=postgres://... -p 3000:3000 ask-the-repo
 ```
+
+`docker-compose.yml` wires the app to a `pgvector/pgvector:pg16` service and overrides `DATABASE_URL` to point at it.
 
 When `DATABASE_URL` is set, all indexes and repo registry are stored in PostgreSQL (with pgvector extension) instead of the filesystem. This is required for stateless container deployments (ECS, Kubernetes).
 

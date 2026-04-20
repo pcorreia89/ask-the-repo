@@ -254,7 +254,7 @@ Two supported paths:
 - A host with **Java 21** (JRE) — or just Docker if you use the container path.
 - API keys: `ANTHROPIC_API_KEY`. Embeddings default to Ollama (see [Embedding providers](#embedding-providers)).
 - Git provider token(s): `GITHUB_TOKEN` and/or `BITBUCKET_TOKEN` (or a GitHub App — see [GitHub App auth](#github-app-auth)).
-- Slack app tokens: `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` (see [Slack app setup](#slack-app-setup) below).
+- Slack app tokens: `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` (see [Slack app setup](#slack-app-setup)).
 
 ## Docker
 
@@ -607,8 +607,9 @@ Non-obvious choices and their rationale.
 
 - **Gitignore matcher** does not support character classes, backslash
   escaping, or nested `.gitignore` files.
-- **Entire vector store is loaded into memory.** Fine at thousands of
-  chunks; not at millions.
+- **Entire vector store is loaded into memory** when using the
+  file-backed store. Fine at thousands of chunks; not at millions. The
+  PostgreSQL backend (`PgStore`) avoids this by querying with pgvector.
 - **No concurrent embedding requests.** First-time ingest of large repos
   is bottlenecked by embedding latency.
 - **The `ask` command always embeds the question fresh**, even for
@@ -622,8 +623,6 @@ Non-obvious choices and their rationale.
 
 ### Natural next steps
 
-1. **A proper vector store** — Qdrant, pgvector, or DuckDB — once the
-   total size crosses hundreds of MB.
-2. **Rate limiting** on webhook and admin endpoints to prevent abuse.
-3. **Encryption at rest** for vector indexes (source code chunks are
+1. **Rate limiting** on webhook and admin endpoints to prevent abuse.
+2. **Encryption at rest** for vector indexes (source code chunks are
    currently stored as plaintext in `chunks.jsonl`).
