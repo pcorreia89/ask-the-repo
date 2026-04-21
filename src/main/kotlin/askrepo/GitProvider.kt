@@ -14,14 +14,25 @@ import java.util.concurrent.atomic.AtomicInteger
 
 data class RemoteFile(val path: String, val content: ByteArray, val size: Long)
 
-private const val PARALLEL_FETCHES = 8
+private const val BITBUCKET_PARALLEL_FETCHES = 2
+private const val GITHUB_PARALLEL_FETCHES = 8
+private const val MAX_RETRIES_429 = 5
+private const val MAX_RETRY_WAIT_MS = 5_000L
+
+private fun retryAfterMillis(res: HttpResponse<*>, attempt: Int): Long {
+    val header = res.headers().firstValue("retry-after").orElse(null)
+    val fromHeader = header?.toLongOrNull()?.let { it * 1000L }
+    val backoff = 1000L shl attempt
+    return (fromHeader ?: backoff).coerceIn(1000L, MAX_RETRY_WAIT_MS)
+}
 
 private fun fetchParallel(
+    parallelism: Int,
     paths: List<String>,
     sizes: List<Long>,
     fetcher: (String) -> ByteArray?,
 ): List<RemoteFile> {
-    val executor = Executors.newFixedThreadPool(PARALLEL_FETCHES)
+    val executor = Executors.newFixedThreadPool(parallelism)
     try {
         val futures = paths.mapIndexed { i, path ->
             executor.submit<RemoteFile?> {
@@ -55,8 +66,8 @@ class BitbucketProvider(private val token: String) : GitProvider {
         val paths = listFiles(workspace, repo, branch)
         System.err.println("  listed ${paths.size} file(s) from Bitbucket")
         val included = paths.filter { Ingest.isIncludedFile(it.path) && it.size <= Defaults.MAX_FILE_BYTES }
-        onProgress("Fetching ${included.size} files from Bitbucket (${PARALLEL_FETCHES} parallel)...")
-        val out = fetchParallel(included.map { it.path }, included.map { it.size }) { path ->
+        onProgress("Fetching ${included.size} files from Bitbucket ($BITBUCKET_PARALLEL_FETCHES parallel)...")
+        val out = fetchParallel(BITBUCKET_PARALLEL_FETCHES, included.map { it.path }, included.map { it.size }) { path ->
             fetchFile(workspace, repo, branch, path)
         }
         onProgress("Fetched ${out.size} files from Bitbucket")
@@ -93,25 +104,45 @@ class BitbucketProvider(private val token: String) : GitProvider {
     }
 
     private fun get(url: String): String {
-        val req = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .timeout(Duration.ofSeconds(60))
-            .header("authorization", authHeader)
-            .GET().build()
-        val res = http.send(req, HttpResponse.BodyHandlers.ofString())
-        if (res.statusCode() !in 200..299) error("bitbucket ${res.statusCode()}: ${res.body().take(300)}")
-        return res.body()
+        var attempt = 0
+        while (true) {
+            val req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(60))
+                .header("authorization", authHeader)
+                .GET().build()
+            val res = http.send(req, HttpResponse.BodyHandlers.ofString())
+            if (res.statusCode() == 429 && attempt < MAX_RETRIES_429) {
+                val waitMs = retryAfterMillis(res, attempt)
+                System.err.println("  429 rate-limited on $url, retrying in ${waitMs}ms (attempt ${attempt + 1}/$MAX_RETRIES_429)")
+                Thread.sleep(waitMs)
+                attempt++
+                continue
+            }
+            if (res.statusCode() !in 200..299) error("bitbucket ${res.statusCode()}: ${res.body().take(300)}")
+            return res.body()
+        }
     }
 
     private fun getBytes(url: String): ByteArray {
-        val req = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .timeout(Duration.ofSeconds(60))
-            .header("authorization", authHeader)
-            .GET().build()
-        val res = http.send(req, HttpResponse.BodyHandlers.ofByteArray())
-        if (res.statusCode() !in 200..299) error("bitbucket ${res.statusCode()}")
-        return res.body()
+        var attempt = 0
+        while (true) {
+            val req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(60))
+                .header("authorization", authHeader)
+                .GET().build()
+            val res = http.send(req, HttpResponse.BodyHandlers.ofByteArray())
+            if (res.statusCode() == 429 && attempt < MAX_RETRIES_429) {
+                val waitMs = retryAfterMillis(res, attempt)
+                System.err.println("  429 rate-limited on $url, retrying in ${waitMs}ms (attempt ${attempt + 1}/$MAX_RETRIES_429)")
+                Thread.sleep(waitMs)
+                attempt++
+                continue
+            }
+            if (res.statusCode() !in 200..299) error("bitbucket ${res.statusCode()}")
+            return res.body()
+        }
     }
 
     @Serializable
@@ -139,8 +170,8 @@ class GitHubProvider(private val token: String) : GitProvider {
         val tree = listTree(workspace, repo, branch)
         System.err.println("  listed ${tree.size} file(s) from GitHub")
         val included = tree.filter { it.type == "blob" && Ingest.isIncludedFile(it.path) && (it.size ?: 0) <= Defaults.MAX_FILE_BYTES }
-        onProgress("Fetching ${included.size} files from GitHub (${PARALLEL_FETCHES} parallel)...")
-        val out = fetchParallel(included.map { it.path }, included.map { it.size ?: 0L }) { path ->
+        onProgress("Fetching ${included.size} files from GitHub ($GITHUB_PARALLEL_FETCHES parallel)...")
+        val out = fetchParallel(GITHUB_PARALLEL_FETCHES, included.map { it.path }, included.map { it.size ?: 0L }) { path ->
             fetchFile(workspace, repo, branch, path)
         }
         onProgress("Fetched ${out.size} files from GitHub")
@@ -169,15 +200,25 @@ class GitHubProvider(private val token: String) : GitProvider {
     }
 
     private fun get(url: String): String {
-        val req = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .timeout(Duration.ofSeconds(60))
-            .header("authorization", "Bearer $token")
-            .header("accept", "application/vnd.github+json")
-            .GET().build()
-        val res = http.send(req, HttpResponse.BodyHandlers.ofString())
-        if (res.statusCode() !in 200..299) error("github ${res.statusCode()}: ${res.body().take(300)}")
-        return res.body()
+        var attempt = 0
+        while (true) {
+            val req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(60))
+                .header("authorization", "Bearer $token")
+                .header("accept", "application/vnd.github+json")
+                .GET().build()
+            val res = http.send(req, HttpResponse.BodyHandlers.ofString())
+            if (res.statusCode() == 429 && attempt < MAX_RETRIES_429) {
+                val waitMs = retryAfterMillis(res, attempt)
+                System.err.println("  429 rate-limited on $url, retrying in ${waitMs}ms (attempt ${attempt + 1}/$MAX_RETRIES_429)")
+                Thread.sleep(waitMs)
+                attempt++
+                continue
+            }
+            if (res.statusCode() !in 200..299) error("github ${res.statusCode()}: ${res.body().take(300)}")
+            return res.body()
+        }
     }
 
     @Serializable

@@ -58,8 +58,9 @@ object Ingest {
             val text = String(file.content, StandardCharsets.UTF_8)
             val produced = Chunking.chunk(rel, text)
             val ids = ArrayList<String>(produced.size)
+            val pathHash = sha256(rel.toByteArray(StandardCharsets.UTF_8))
             for ((i, c) in produced.withIndex()) {
-                val id = "${hash.substring(0, 12)}:$i"
+                val id = "${pathHash.substring(0, 6)}${hash.substring(0, 6)}:$i"
                 ids.add(id)
                 val stored = StoredChunk(id, c.filePath, c.startLine, c.endLine, c.language, c.text)
                 newChunks.add(stored)
@@ -135,8 +136,9 @@ object Ingest {
             val text = String(bytes, StandardCharsets.UTF_8)
             val produced = Chunking.chunk(rel, text)
             val ids = ArrayList<String>(produced.size)
+            val pathHash = sha256(rel.toByteArray(StandardCharsets.UTF_8))
             for ((i, c) in produced.withIndex()) {
-                val id = "${hash.substring(0, 12)}:$i"
+                val id = "${pathHash.substring(0, 6)}${hash.substring(0, 6)}:$i"
                 ids.add(id)
                 val stored = StoredChunk(
                     id = id,
