@@ -14,10 +14,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 data class RemoteFile(val path: String, val content: ByteArray, val size: Long)
 
-private const val BITBUCKET_PARALLEL_FETCHES = 2
+private const val BITBUCKET_PARALLEL_FETCHES = 8
 private const val GITHUB_PARALLEL_FETCHES = 8
 private const val MAX_RETRIES_429 = 5
-private const val MAX_RETRY_WAIT_MS = 5_000L
+private const val MAX_RETRY_WAIT_MS = 10_000L
 
 private fun retryAfterMillis(res: HttpResponse<*>, attempt: Int): Long {
     val header = res.headers().firstValue("retry-after").orElse(null)
