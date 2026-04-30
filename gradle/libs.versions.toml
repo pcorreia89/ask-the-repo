@@ -8,6 +8,7 @@ slf4j = "2.0.16"
 websocket-api = "1.1"
 tyrus = "1.20"
 postgresql = "42.7.4"
+aws-sdk = "2.30.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -22,6 +23,7 @@ tyrus-standalone-client = { module = "org.glassfish.tyrus.bundles:tyrus-standalo
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
+aws-sdk-bedrockruntime = { module = "software.amazon.awssdk:bedrockruntime", version.ref = "aws-sdk" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

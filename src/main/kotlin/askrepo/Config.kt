@@ -42,8 +42,10 @@ object Defaults {
 
 enum class EmbeddingProvider { VOYAGE, OLLAMA }
 
+enum class LlmProvider { ANTHROPIC, BEDROCK }
+
 data class Config(
-    val anthropicApiKey: String,
+    val anthropicApiKey: String?,
     val voyageApiKey: String?,
     val embeddingProvider: EmbeddingProvider,
     val anthropicModel: String,
@@ -66,7 +68,22 @@ data class Config(
     val githubAppId: String? = null,
     val githubAppInstallationId: String? = null,
     val githubAppPrivateKey: String? = null,
+    val llmProvider: LlmProvider = LlmProvider.ANTHROPIC,
+    val bedrockModelId: String? = null,
 ) {
+    fun createLlmClient(): LlmClient = when (llmProvider) {
+        LlmProvider.ANTHROPIC -> {
+            val key = anthropicApiKey
+                ?: error("ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic")
+            AnthropicClient(key, anthropicModel)
+        }
+        LlmProvider.BEDROCK -> {
+            val id = bedrockModelId
+                ?: error("BEDROCK_MODEL_ID is required when LLM_PROVIDER=bedrock")
+            BedrockClaudeClient(id)
+        }
+    }
+
     fun createEmbeddingClient(): EmbeddingClient = when (embeddingProvider) {
         EmbeddingProvider.VOYAGE -> {
             val key = voyageApiKey
@@ -105,10 +122,28 @@ data class Config(
                 }
             }
 
-            val anthropic = env["ANTHROPIC_API_KEY"].orEmpty().trim()
-            if (anthropic.isEmpty()) {
+            val llmProviderStr = env["LLM_PROVIDER"]?.trim()?.lowercase() ?: ""
+            val llmProvider = when (llmProviderStr) {
+                "", "anthropic" -> LlmProvider.ANTHROPIC
+                "bedrock" -> LlmProvider.BEDROCK
+                else -> {
+                    System.err.println("error: LLM_PROVIDER must be 'anthropic' or 'bedrock', got '$llmProviderStr'")
+                    kotlin.system.exitProcess(2)
+                }
+            }
+            val bedrockModelId = env["BEDROCK_MODEL_ID"]?.takeIf { it.isNotBlank() }
+
+            val anthropic = env["ANTHROPIC_API_KEY"].orEmpty().trim().ifEmpty { null }
+            if (llmProvider == LlmProvider.ANTHROPIC && anthropic == null) {
                 System.err.println(
                     "error: ANTHROPIC_API_KEY must be set " +
+                        "(in the environment or in ./.env). See .env.example."
+                )
+                kotlin.system.exitProcess(2)
+            }
+            if (llmProvider == LlmProvider.BEDROCK && bedrockModelId == null) {
+                System.err.println(
+                    "error: BEDROCK_MODEL_ID must be set when LLM_PROVIDER=bedrock " +
                         "(in the environment or in ./.env). See .env.example."
                 )
                 kotlin.system.exitProcess(2)
@@ -156,6 +191,8 @@ data class Config(
                 githubAppId = env["GITHUB_APP_ID"]?.takeIf { it.isNotBlank() },
                 githubAppInstallationId = env["GITHUB_APP_INSTALLATION_ID"]?.takeIf { it.isNotBlank() },
                 githubAppPrivateKey = env["GITHUB_APP_PRIVATE_KEY"]?.takeIf { it.isNotBlank() },
+                llmProvider = llmProvider,
+                bedrockModelId = bedrockModelId,
             )
         }
     }

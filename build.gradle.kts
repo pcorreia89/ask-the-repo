@@ -25,6 +25,7 @@ dependencies {
     implementation(libs.tyrus.standalone.client)
     implementation(libs.slf4j.simple)
     implementation(libs.postgresql)
+    implementation(libs.aws.sdk.bedrockruntime)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.ktor.server.test.host)

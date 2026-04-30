@@ -24,7 +24,8 @@ Key files:
 - `SlackBot.kt` — Slack Bolt SDK socket-mode bot
 - `Ingest.kt` / `Chunking.kt` — repo walking, chunking (code + markdown aware)
 - `Gitignore.kt` — partial `.gitignore` pattern matcher
-- `Anthropic.kt` / `Embeddings.kt` — Claude and embedding HTTP clients (Voyage AI + Ollama)
+- `LlmClient.kt` — interface for Claude clients (direct Anthropic vs Bedrock)
+- `Anthropic.kt` / `Bedrock.kt` / `Embeddings.kt` — Claude clients (Anthropic API + AWS Bedrock) and embedding HTTP clients (Voyage AI + Ollama)
 - `Answer.kt` — orchestrates retrieval + Claude call for a question
 - `Retrieve.kt` — hybrid BM25 + cosine similarity retrieval
 - `Store.kt` — index storage; delegates to file-based or PostgreSQL (`PgStore.kt`) backend
@@ -39,7 +40,7 @@ Key files:
 - 4-space indentation, no tabs
 - Singleton `object` for stateless services (Answer, Store, Ingest, etc.)
 - `@Serializable` data classes for JSON shapes (kotlinx-serialization)
-- Java `HttpClient` for all HTTP (no OkHttp/Ktor client)
+- Java `HttpClient` for all HTTP (no OkHttp/Ktor client). Exception: AWS Bedrock uses the AWS SDK v2 (`software.amazon.awssdk:bedrockruntime`) — required for SigV4 signing and the binary `eventstream` framing on streaming responses.
 - `java.nio.file.Path` / `Files` for file I/O
 - No comments unless the *why* is non-obvious
 
@@ -64,7 +65,10 @@ When `DATABASE_URL` is set, all indexes and repo registry are stored in PostgreS
 
 ## Environment
 
-Required: `ANTHROPIC_API_KEY` (in env or `.env` file).
+Claude access — pick one:
+- Direct Anthropic API (default): set `ANTHROPIC_API_KEY`.
+- AWS Bedrock: set `LLM_PROVIDER=bedrock` and `BEDROCK_MODEL_ID` (foundation model id or inference-profile ARN). Region and credentials come from the standard AWS SDK chain (`AWS_REGION`, `AWS_PROFILE` locally; IAM task/instance role in ECS/EKS/EC2). Required IAM actions: `bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream` on the model ARN.
+
 Embeddings default to Ollama (`nomic-embed-text`). Set `EMBEDDING_PROVIDER=voyage` and `VOYAGE_API_KEY` for Voyage.
 GitHub auth: set `GITHUB_TOKEN` or `GITHUB_APP_ID` + `GITHUB_APP_INSTALLATION_ID` + `GITHUB_APP_PRIVATE_KEY`.
 Set `DATABASE_URL` for PostgreSQL storage (requires pgvector extension; available on AWS RDS/Aurora PostgreSQL).

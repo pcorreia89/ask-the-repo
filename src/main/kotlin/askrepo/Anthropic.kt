@@ -17,10 +17,10 @@ class AnthropicClient(
     private val http: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(30))
         .build(),
-) {
+) : LlmClient {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
-    fun message(systemPrompt: String, userContent: String, maxTokens: Int): String {
+    override fun message(systemPrompt: String, userContent: String, maxTokens: Int): String {
         val req = Request(
             model = model,
             maxTokens = maxTokens,
@@ -33,7 +33,7 @@ class AnthropicClient(
         return parsed.content.filter { it.type == "text" }.joinToString("") { it.text.orEmpty() }
     }
 
-    fun messageStreaming(systemPrompt: String, userContent: String, maxTokens: Int, onChunk: (String) -> Unit): String {
+    override fun messageStreaming(systemPrompt: String, userContent: String, maxTokens: Int, onChunk: (String) -> Unit): String {
         val req = Request(
             model = model,
             maxTokens = maxTokens,

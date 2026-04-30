@@ -47,7 +47,7 @@ Rules:
         }
 
         val userContent = buildUserContent(question, hits)
-        val anthropic = AnthropicClient(config.anthropicApiKey, config.anthropicModel)
+        val anthropic = config.createLlmClient()
         val text = anthropic.message(SYSTEM_PROMPT, userContent, config.maxTokens)
         val sources = hits.map { it.chunk.filePath }.distinct()
         return AnswerResult(text.trim(), sources)
@@ -75,7 +75,7 @@ Rules:
 
         val sources = hits.map { it.chunk.filePath }.distinct()
         val userContent = buildUserContent(question, hits)
-        val anthropic = AnthropicClient(config.anthropicApiKey, config.anthropicModel)
+        val anthropic = config.createLlmClient()
         val text = anthropic.messageStreaming(SYSTEM_PROMPT, userContent, config.maxTokens) { partial ->
             onChunk(partial, sources)
         }
