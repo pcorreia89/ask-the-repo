@@ -159,5 +159,178 @@ class EmbeddingsTest {
 
         val ollamaConfig = voyageConfig.copy(embeddingProvider = EmbeddingProvider.OLLAMA)
         assertEquals("nomic-embed-text", ollamaConfig.embeddingModelName)
+
+        val bedrockConfig = voyageConfig.copy(
+            embeddingProvider = EmbeddingProvider.BEDROCK,
+            bedrockEmbeddingModelId = "amazon.titan-embed-text-v2:0",
+        )
+        assertEquals("amazon.titan-embed-text-v2:0", bedrockConfig.embeddingModelName)
+
+        val bedrockWithDims = bedrockConfig.copy(bedrockEmbeddingDimensions = 512)
+        assertEquals("amazon.titan-embed-text-v2:0@512", bedrockWithDims.embeddingModelName)
+    }
+
+    @Test
+    fun bedrockCohereBatchesAndSendsInputType() {
+        val captured = mutableListOf<Pair<String, String>>()
+        val client = BedrockEmbeddingsClient(
+            modelId = "cohere.embed-english-v3",
+            invoker = { modelId, body ->
+                captured += modelId to body
+                """{"embeddings":[[0.1,0.2,0.3],[0.4,0.5,0.6]]}"""
+            },
+        )
+        val result = client.embed(listOf("hello", "world"), EmbedInputType.DOCUMENT)
+        assertEquals(2, result.size)
+        assertEquals(3, result[0].size)
+        assertEquals(0.1f, result[0][0], 0.001f)
+        assertEquals(0.6f, result[1][2], 0.001f)
+        assertEquals(1, captured.size)
+        assertEquals("cohere.embed-english-v3", captured[0].first)
+        assertTrue(captured[0].second.contains("\"input_type\":\"search_document\""))
+        assertTrue(captured[0].second.contains("\"hello\""))
+        assertTrue(captured[0].second.contains("\"world\""))
+    }
+
+    @Test
+    fun bedrockCohereUsesQueryInputType() {
+        var capturedBody = ""
+        val client = BedrockEmbeddingsClient(
+            modelId = "cohere.embed-multilingual-v3",
+            invoker = { _, body ->
+                capturedBody = body
+                """{"embeddings":[[0.1]]}"""
+            },
+        )
+        client.embed(listOf("what does this do?"), EmbedInputType.QUERY)
+        assertTrue(capturedBody.contains("\"input_type\":\"search_query\""))
+    }
+
+    @Test
+    fun bedrockTitanSendsOneCallPerText() {
+        val captured = mutableListOf<String>()
+        val responses = listOf(
+            """{"embedding":[1.0,2.0,3.0]}""",
+            """{"embedding":[4.0,5.0,6.0]}""",
+        )
+        var idx = 0
+        val client = BedrockEmbeddingsClient(
+            modelId = "amazon.titan-embed-text-v2:0",
+            invoker = { _, body ->
+                captured += body
+                responses[idx++]
+            },
+        )
+        val result = client.embed(listOf("a", "b"), EmbedInputType.DOCUMENT)
+        assertEquals(2, captured.size)
+        assertTrue(captured[0].contains("\"inputText\":\"a\""))
+        assertTrue(captured[1].contains("\"inputText\":\"b\""))
+        assertTrue(captured[0].contains("\"normalize\":true"))
+        assertEquals(2, result.size)
+        assertEquals(1.0f, result[0][0], 0.001f)
+        assertEquals(6.0f, result[1][2], 0.001f)
+    }
+
+    @Test
+    fun bedrockTitanIncludesDimensionsWhenSpecified() {
+        var capturedBody = ""
+        val client = BedrockEmbeddingsClient(
+            modelId = "amazon.titan-embed-text-v2:0",
+            dimensions = 512,
+            invoker = { _, body ->
+                capturedBody = body
+                """{"embedding":[0.1,0.2]}"""
+            },
+        )
+        client.embed(listOf("hello"), EmbedInputType.DOCUMENT)
+        assertTrue(capturedBody.contains("\"dimensions\":512"), "expected dimensions in body, got: $capturedBody")
+    }
+
+    @Test
+    fun bedrockTitanOmitsDimensionsWhenNull() {
+        var capturedBody = ""
+        val client = BedrockEmbeddingsClient(
+            modelId = "amazon.titan-embed-text-v2:0",
+            invoker = { _, body ->
+                capturedBody = body
+                """{"embedding":[0.1]}"""
+            },
+        )
+        client.embed(listOf("hello"), EmbedInputType.DOCUMENT)
+        assertTrue(!capturedBody.contains("dimensions"), "did not expect dimensions field, got: $capturedBody")
+    }
+
+    @Test
+    fun bedrockReturnsEmptyForEmptyInput() {
+        val client = BedrockEmbeddingsClient(
+            modelId = "cohere.embed-english-v3",
+            invoker = { _, _ -> error("should not be called") },
+        )
+        assertTrue(client.embed(emptyList(), EmbedInputType.DOCUMENT).isEmpty())
+    }
+
+    @Test
+    fun bedrockUnsupportedModelThrows() {
+        assertFailsWith<IllegalStateException> {
+            BedrockEmbeddingsClient(modelId = "anthropic.claude-3-haiku-20240307-v1:0")
+        }
+    }
+
+    @Test
+    fun bedrockCohereRejectsDimensions() {
+        assertFailsWith<IllegalStateException> {
+            BedrockEmbeddingsClient(modelId = "cohere.embed-english-v3", dimensions = 512)
+        }
+    }
+
+    @Test
+    fun bedrockTitanRejectsInvalidDimensions() {
+        assertFailsWith<IllegalStateException> {
+            BedrockEmbeddingsClient(modelId = "amazon.titan-embed-text-v2:0", dimensions = 777)
+        }
+    }
+
+    @Test
+    fun configCreatesBedrockClient() {
+        val config = Config(
+            anthropicApiKey = "test",
+            voyageApiKey = null,
+            embeddingProvider = EmbeddingProvider.BEDROCK,
+            anthropicModel = "m",
+            voyageModel = Defaults.VOYAGE_MODEL,
+            ollamaModel = Defaults.OLLAMA_MODEL,
+            ollamaBaseUrl = Defaults.OLLAMA_BASE_URL,
+            topK = 5, maxTokens = 512,
+            indexBase = java.nio.file.Path.of("/tmp"),
+            adminUser = "a", adminPassword = "p", adminPort = 3000,
+            slackBotToken = null, slackAppToken = null,
+            bitbucketToken = null, githubToken = null,
+            syncIntervalMinutes = null, webhookSecret = null,
+            bedrockEmbeddingModelId = "cohere.embed-english-v3",
+        )
+        val client = config.createEmbeddingClient()
+        assertTrue(client is BedrockEmbeddingsClient)
+    }
+
+    @Test
+    fun configBedrockWithoutModelIdThrows() {
+        val config = Config(
+            anthropicApiKey = "test",
+            voyageApiKey = null,
+            embeddingProvider = EmbeddingProvider.BEDROCK,
+            anthropicModel = "m",
+            voyageModel = Defaults.VOYAGE_MODEL,
+            ollamaModel = Defaults.OLLAMA_MODEL,
+            ollamaBaseUrl = Defaults.OLLAMA_BASE_URL,
+            topK = 5, maxTokens = 512,
+            indexBase = java.nio.file.Path.of("/tmp"),
+            adminUser = "a", adminPassword = "p", adminPort = 3000,
+            slackBotToken = null, slackAppToken = null,
+            bitbucketToken = null, githubToken = null,
+            syncIntervalMinutes = null, webhookSecret = null,
+        )
+        assertFailsWith<IllegalStateException> {
+            config.createEmbeddingClient()
+        }
     }
 }

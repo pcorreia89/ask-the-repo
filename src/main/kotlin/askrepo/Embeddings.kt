@@ -3,6 +3,9 @@ package askrepo
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import software.amazon.awssdk.core.SdkBytes
+import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -187,4 +190,130 @@ class OllamaEmbeddingsClient(
         val model: String? = null,
         val embeddings: List<List<Double>>,
     )
+}
+
+typealias BedrockInvoker = (modelId: String, body: String) -> String
+
+class BedrockEmbeddingsClient(
+    private val modelId: String,
+    private val dimensions: Int? = null,
+    private val invoker: BedrockInvoker = ::defaultBedrockInvoke,
+) : EmbeddingClient {
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+
+    private val family: Family = when {
+        modelId.startsWith("cohere.embed-") -> Family.COHERE
+        modelId.startsWith("amazon.titan-embed-text-v2") -> Family.TITAN_V2
+        else -> error(
+            "unsupported Bedrock embedding model '$modelId' " +
+                "(expected 'cohere.embed-*' or 'amazon.titan-embed-text-v2:*')"
+        )
+    }
+
+    init {
+        if (family == Family.COHERE && dimensions != null) {
+            error("BEDROCK_EMBEDDING_DIMENSIONS is not supported for Cohere models; remove it or switch to Titan")
+        }
+        if (family == Family.TITAN_V2 && dimensions != null && dimensions !in TITAN_V2_DIMS) {
+            error("BEDROCK_EMBEDDING_DIMENSIONS must be one of $TITAN_V2_DIMS for Titan v2, got $dimensions")
+        }
+    }
+
+    override fun embed(texts: List<String>, type: EmbedInputType, onBatchProgress: (batch: Int, total: Int) -> Unit): List<FloatArray> {
+        if (texts.isEmpty()) return emptyList()
+        return when (family) {
+            Family.COHERE -> embedCohere(texts, type, onBatchProgress)
+            Family.TITAN_V2 -> embedTitan(texts, onBatchProgress)
+        }
+    }
+
+    private fun embedCohere(texts: List<String>, type: EmbedInputType, onBatchProgress: (Int, Int) -> Unit): List<FloatArray> {
+        val batches = texts.chunked(COHERE_MAX_BATCH)
+        val out = ArrayList<FloatArray>(texts.size)
+        for ((i, batch) in batches.withIndex()) {
+            onBatchProgress(i + 1, batches.size)
+            val body = json.encodeToString(
+                CohereRequest.serializer(),
+                CohereRequest(
+                    texts = batch,
+                    inputType = when (type) {
+                        EmbedInputType.DOCUMENT -> "search_document"
+                        EmbedInputType.QUERY -> "search_query"
+                    },
+                ),
+            )
+            val response = invoker(modelId, body)
+            val parsed = json.decodeFromString(CohereResponse.serializer(), response)
+            out.addAll(parsed.embeddings.map { it.toFloatArray() })
+        }
+        return out
+    }
+
+    private fun embedTitan(texts: List<String>, onBatchProgress: (Int, Int) -> Unit): List<FloatArray> {
+        val out = ArrayList<FloatArray>(texts.size)
+        for ((i, text) in texts.withIndex()) {
+            onBatchProgress(i + 1, texts.size)
+            val body = json.encodeToString(
+                TitanRequest.serializer(),
+                TitanRequest(
+                    inputText = text,
+                    dimensions = dimensions,
+                    normalize = true,
+                ),
+            )
+            val response = invoker(modelId, body)
+            val parsed = json.decodeFromString(TitanResponse.serializer(), response)
+            out.add(parsed.embedding.toFloatArray())
+        }
+        return out
+    }
+
+    private fun List<Double>.toFloatArray(): FloatArray {
+        val arr = FloatArray(size)
+        for (i in indices) arr[i] = this[i].toFloat()
+        return arr
+    }
+
+    private enum class Family { COHERE, TITAN_V2 }
+
+    @Serializable
+    private data class CohereRequest(
+        val texts: List<String>,
+        @SerialName("input_type") val inputType: String,
+    )
+
+    @Serializable
+    private data class CohereResponse(
+        val embeddings: List<List<Double>> = emptyList(),
+    )
+
+    @Serializable
+    private data class TitanRequest(
+        val inputText: String,
+        val dimensions: Int? = null,
+        val normalize: Boolean,
+    )
+
+    @Serializable
+    private data class TitanResponse(
+        val embedding: List<Double> = emptyList(),
+    )
+
+    companion object {
+        private const val COHERE_MAX_BATCH = 96
+        private val TITAN_V2_DIMS = setOf(256, 512, 1024)
+        private val sharedClient: BedrockRuntimeClient by lazy {
+            BedrockRuntimeClient.builder().build()
+        }
+
+        fun defaultBedrockInvoke(modelId: String, body: String): String {
+            val req = InvokeModelRequest.builder()
+                .modelId(modelId)
+                .contentType("application/json")
+                .accept("application/json")
+                .body(SdkBytes.fromUtf8String(body))
+                .build()
+            return sharedClient.invokeModel(req).body().asUtf8String()
+        }
+    }
 }
