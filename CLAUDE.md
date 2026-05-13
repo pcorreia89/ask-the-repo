@@ -69,7 +69,9 @@ Claude access — pick one:
 - Direct Anthropic API (default): set `ANTHROPIC_API_KEY`.
 - AWS Bedrock: set `LLM_PROVIDER=bedrock` and `BEDROCK_MODEL_ID` (foundation model id or inference-profile ARN). Region and credentials come from the standard AWS SDK chain (`AWS_REGION`, `AWS_PROFILE` locally; IAM task/instance role in ECS/EKS/EC2). Required IAM actions: `bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream` on the model ARN.
 
-Embeddings default to Ollama (`nomic-embed-text`). Set `EMBEDDING_PROVIDER=voyage` and `VOYAGE_API_KEY` for Voyage.
+Embeddings default to Ollama (`nomic-embed-text`). Alternatives:
+- Voyage: `EMBEDDING_PROVIDER=voyage`, `VOYAGE_API_KEY`, optional `VOYAGE_MODEL` (default `voyage-code-3`).
+- AWS Bedrock: `EMBEDDING_PROVIDER=bedrock`, `BEDROCK_EMBEDDING_MODEL_ID` (`cohere.embed-english-v3`, `cohere.embed-multilingual-v3`, or `amazon.titan-embed-text-v2:0`). Optional `BEDROCK_EMBEDDING_DIMENSIONS` (256/512/1024, Titan v2 only). Uses the same AWS credential chain as the LLM Bedrock provider; required IAM action: `bedrock:InvokeModel`. Changing the model or dimensions requires re-ingesting all repos — dim is recorded per manifest.
 GitHub auth: set `GITHUB_TOKEN` or `GITHUB_APP_ID` + `GITHUB_APP_INSTALLATION_ID` + `GITHUB_APP_PRIVATE_KEY`.
 Set `DATABASE_URL` for PostgreSQL storage (requires pgvector extension; available on AWS RDS/Aurora PostgreSQL).
 See `.env.example` for all optional variables.

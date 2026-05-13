@@ -40,7 +40,7 @@ object Defaults {
     )
 }
 
-enum class EmbeddingProvider { VOYAGE, OLLAMA }
+enum class EmbeddingProvider { VOYAGE, OLLAMA, BEDROCK }
 
 enum class LlmProvider { ANTHROPIC, BEDROCK }
 
@@ -70,6 +70,8 @@ data class Config(
     val githubAppPrivateKey: String? = null,
     val llmProvider: LlmProvider = LlmProvider.ANTHROPIC,
     val bedrockModelId: String? = null,
+    val bedrockEmbeddingModelId: String? = null,
+    val bedrockEmbeddingDimensions: Int? = null,
 ) {
     fun createLlmClient(): LlmClient = when (llmProvider) {
         LlmProvider.ANTHROPIC -> {
@@ -91,12 +93,21 @@ data class Config(
             VoyageEmbeddingsClient(key, voyageModel)
         }
         EmbeddingProvider.OLLAMA -> OllamaEmbeddingsClient(ollamaModel, ollamaBaseUrl)
+        EmbeddingProvider.BEDROCK -> {
+            val id = bedrockEmbeddingModelId
+                ?: error("BEDROCK_EMBEDDING_MODEL_ID is required when EMBEDDING_PROVIDER=bedrock")
+            BedrockEmbeddingsClient(id, bedrockEmbeddingDimensions)
+        }
     }
 
     val embeddingModelName: String
         get() = when (embeddingProvider) {
             EmbeddingProvider.VOYAGE -> voyageModel
             EmbeddingProvider.OLLAMA -> ollamaModel
+            EmbeddingProvider.BEDROCK -> {
+                val id = bedrockEmbeddingModelId ?: "bedrock"
+                if (bedrockEmbeddingDimensions != null) "$id@$bedrockEmbeddingDimensions" else id
+            }
         }
 
     fun resolveGitHubToken(): String? {
@@ -154,12 +165,28 @@ data class Config(
             val provider = when {
                 providerStr == "ollama" -> EmbeddingProvider.OLLAMA
                 providerStr == "voyage" -> EmbeddingProvider.VOYAGE
+                providerStr == "bedrock" -> EmbeddingProvider.BEDROCK
                 providerStr.isEmpty() && voyage != null -> EmbeddingProvider.VOYAGE
                 providerStr.isEmpty() -> EmbeddingProvider.OLLAMA
                 else -> {
-                    System.err.println("error: EMBEDDING_PROVIDER must be 'voyage' or 'ollama', got '$providerStr'")
+                    System.err.println("error: EMBEDDING_PROVIDER must be 'voyage', 'ollama', or 'bedrock', got '$providerStr'")
                     kotlin.system.exitProcess(2)
                 }
+            }
+
+            val bedrockEmbedModelId = env["BEDROCK_EMBEDDING_MODEL_ID"]?.takeIf { it.isNotBlank() }
+            val bedrockEmbedDims = env["BEDROCK_EMBEDDING_DIMENSIONS"]?.takeIf { it.isNotBlank() }?.let {
+                it.toIntOrNull() ?: run {
+                    System.err.println("error: BEDROCK_EMBEDDING_DIMENSIONS must be an integer, got '$it'")
+                    kotlin.system.exitProcess(2)
+                }
+            }
+            if (provider == EmbeddingProvider.BEDROCK && bedrockEmbedModelId == null) {
+                System.err.println(
+                    "error: BEDROCK_EMBEDDING_MODEL_ID must be set when EMBEDDING_PROVIDER=bedrock " +
+                        "(in the environment or in ./.env). See .env.example."
+                )
+                kotlin.system.exitProcess(2)
             }
 
             val defaultBase = Path.of(System.getProperty("user.home"), ".ask-the-repo", "indexes")
@@ -193,6 +220,8 @@ data class Config(
                 githubAppPrivateKey = env["GITHUB_APP_PRIVATE_KEY"]?.takeIf { it.isNotBlank() },
                 llmProvider = llmProvider,
                 bedrockModelId = bedrockModelId,
+                bedrockEmbeddingModelId = bedrockEmbedModelId,
+                bedrockEmbeddingDimensions = bedrockEmbedDims,
             )
         }
     }
